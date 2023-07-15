@@ -21,6 +21,41 @@ const pool = mysql.createPool({
   database: 'to_do_list',
 });
 
+
+app.post('/login', (req, res) => {
+  const username = req.body.username;
+  const password = req.body.password;
+
+  // Hash the password using SHA-256
+  const hashedPassword = crypto
+    .createHash('sha256')
+    .update(password)
+    .digest('hex');
+
+  pool.query('SELECT * FROM users WHERE username = ?', [username], (error, results) => {
+    if (error) {
+      console.error('Error Log In:', error);
+      res.status(500).send('Error occurred. Please try again later.');
+    } else {
+      if (results.length === 0) {
+        // User not found
+        res.status(401).send('Invalid username or password.');
+      } else {
+        const user = results[0];
+        if (user.pass === hashedPassword) {
+          // Password matched, login successful
+          console.log('Log In successfully!');
+          res.redirect('/main.html');
+        } else {
+          // Password did not match
+          res.status(401).send('Invalid username or password.');
+        }
+      }
+    }
+  });
+});
+
+
 // Handle form submission
 app.post('/signup', (req, res) => {
   const username = req.body.username;
