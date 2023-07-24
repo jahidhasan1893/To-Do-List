@@ -2,9 +2,12 @@ const express = require('express');
 const mysql = require('mysql2');
 const crypto = require('crypto');
 const bodyParser = require('body-parser');
+const cookieParser = require('cookie-parser');
+const jwt = require('jsonwebtoken');
 
 const app = express();
 const port = 3000;
+const secretKey = crypto.randomBytes(32).toString('hex');
 
 // Configure body-parser to handle form data
 app.use(bodyParser.urlencoded({ extended: false }));
@@ -12,6 +15,7 @@ app.use(bodyParser.urlencoded({ extended: false }));
 // Serve static files
 app.use(express.static('public'));
 app.use(express.json());
+app.use(cookieParser()); 
 
 // Create a MySQL connection pool
 const pool = mysql.createPool({
@@ -21,16 +25,33 @@ const pool = mysql.createPool({
   database: 'to_do_list',
 });
 
+// Function to generate a JWT
+function generateToken(user) {
+  return jwt.sign({ username: user.username, password: user.pass }, secretKey, { expiresIn: '1h' });
+}
+
+function verifyToken(req, res, next) {
+  const token = req.cookies.token; // Read the token from the 'token' cookie
+
+  if (!token) {
+    return res.status(401).send('Access token not provided.');
+  }
+
+  jwt.verify(token, secretKey, (err, decodedToken) => {
+    if (err) {
+      return res.status(403).send('Invalid or expired token.');
+    }
+    req.user = decodedToken;
+    next();
+  });
+}
 
 app.post('/login', (req, res) => {
   const username = req.body.username;
   const password = req.body.password;
 
   // Hash the password using SHA-256
-  const hashedPassword = crypto
-    .createHash('sha256')
-    .update(password)
-    .digest('hex');
+  const hashedPassword = crypto.createHash('sha256').update(password).digest('hex');
 
   pool.query('SELECT * FROM users WHERE username = ?', [username], (error, results) => {
     if (error) {
@@ -44,7 +65,13 @@ app.post('/login', (req, res) => {
         const user = results[0];
         if (user.pass === hashedPassword) {
           // Password matched, login successful
-          console.log('Log In successfully!');
+
+          // Generate a token
+          const token = generateToken(user);
+
+          // Set the token as an HTTP-only cookie
+          res.cookie('token', token, { httpOnly: true, maxAge: 3600000 }); // 1 hour expiry
+
           res.redirect('/main.html');
         } else {
           // Password did not match
