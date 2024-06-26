@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <title>TO-DO LIST</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+    }
+
+    .navbar {
+      background-color: #4caf50;
+      overflow: hidden;
+      padding: 10px 20px;
+      height: 40px;
+      margin-bottom: 100px;
+    }
+
+    .navbar-menu {
+      list-style-type: none;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      justify-content: flex-end;
+    }
+
+    .navbar-item {
+      margin-left: 20px;
+    }
+
+    .navbar-item a {
+      color: #fff;
+      text-decoration: none;
+      padding: 8px 16px;
+      display: block;
+    }
+
+    .navbar-item a:hover {
+      background-color: #2e7a30;
+      border-radius: 4px;
+    }
+
+    @media (max-width: 768px) {
+      .navbar-menu {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+
+      .navbar-item {
+        margin: 10px 0;
+      }
+    }
+
+    .container {
+      max-width: 400px;
+      margin: 0 auto;
+      padding: 20px;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+      background-color: #f9f9f9;
+    }
+
+    h1 {
+      text-align: center;
+    }
+
+    .todo-input {
+      display: flex;
+    }
+
+    .todo-input input[type="text"] {
+      flex-grow: 1;
+      padding: 5px;
+      border: 1px solid #ccc;
+      border-radius: 3px;
+    }
+
+    .todo-input button {
+      margin-left: 10px;
+      padding: 5px 10px;
+      border: none;
+      border-radius: 3px;
+      background-color: #4caf50;
+      color: white;
+      cursor: pointer;
+    }
+
+    .todo-list {
+      margin-top: 20px;
+      list-style-type: none;
+      padding: 0;
+    }
+
+    .todo-item {
+      display: flex;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+
+    .todo-item input[type="checkbox"] {
+      margin-right: 10px;
+    }
+
+    .todo-item label {
+      flex-grow: 1;
+      margin: 0;
+      word-break: break-all;
+    }
+
+    .todo-item button {
+      margin-left: 10px;
+      padding: 3px 8px;
+      border: none;
+      border-radius: 3px;
+      background-color: #f44336;
+      color: white;
+      cursor: pointer;
+    }
+  </style>
+</head>
+
+<body>
+  <nav class="navbar">
+    <ul class="navbar-menu">
+      <li class="navbar-item"><a href="/signout">Sign Out</a></li>
+    </ul>
+  </nav>
+  <div class="container">
+    <h1>Todo List</h1>
+    <div class="todo-input">
+      <input type="text" id="todoInput" placeholder="Enter a task">
+      <button id="addButton" onclick="addTask()">Add</button>
+    </div>
+    <ul class="todo-list" id="todoList"></ul>
+  </div>
+
+  <script>
+    const input = document.getElementById('todoInput');
+    const todoList = document.getElementById('todoList');
+
+    async function addTask() {
+      const task = input.value.trim();
+      if (task !== '') {
+        try {
+          const response = await fetch('/tasks/add-task', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ task }),
+          });
+
+          if (response.ok) {
+            input.value = '';
+            // Refresh the page to display the updated list
+            location.reload();
+          } else {
+            console.error('Error adding task:', response.status);
+          }
+        } catch (error) {
+          console.error('Error adding task:', error);
+        }
+      }
+    }
+
+    async function deleteTask(event) {
+      const listItem = event.target.closest('.todo-item');
+      const taskId = listItem.dataset.taskId;
+
+      try {
+        const response = await fetch('/tasks/delete-task', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ taskId }),
+        });
+
+        if (response.ok) {
+          // Remove the task from the DOM
+          listItem.remove();
+        } else {
+          console.error('Error deleting task:', response.status);
+        }
+      } catch (error) {
+        console.error('Error deleting task:', error);
+      }
+    }
+
+    async function fetchTasks() {
+      try {
+        const response = await fetch('/tasks/all-task');
+        const data = await response.json();
+        data.forEach((task) => {
+          const listItem = document.createElement('li');
+          listItem.classList.add('todo-item');
+          listItem.dataset.taskId = task.id;
+          listItem.innerHTML = `
+            <input type="checkbox">
+            <label>${task.task}</label>
+            <button class="deleteButton" onclick="deleteTask(event)">Delete</button>
+          `;
+          todoList.appendChild(listItem);
+        });
+      } catch (error) {
+        console.error('Error fetching tasks:', error);
+      }
+    }
+
+    // Fetch tasks from the server and populate the list on page load
+    window.addEventListener('DOMContentLoaded', fetchTasks);
+  </script>
+</body>
+
+</html>
